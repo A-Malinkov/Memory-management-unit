@@ -10,10 +10,12 @@
 #include "oskernel.h"
 
 #include <map>
+#include <list>
+#include <cstdint>
 
 namespace RISCV{
 
-/* Length of a virtual address, in bits. */
+  /* Length of a virtual address, in bits. */
 const static uint64_t addressBits = 48;
 
 /* The page size is always a power of 2: (2^pageBits). */
@@ -46,12 +48,30 @@ struct __attribute__((__packed__)) TableEntry
   uint16_t reserved2 : 10;
 };
 
+  struct TLBEntry
+  {
+    uint64_t vpn; /* virtual page number. */
+    uint64_t ppn; /* physical page number. */
+    uint64_t asid;   /* for task 3*/
+  };
+
 /*
  * MMU hardware part.
  */
 
 class MMU: public ::MMU
 {
+  private:
+    std::list<TLBEntry> tlb;
+
+    bool enableTLB = false;
+    bool enableASID = false;
+    size_t tlbSize = 32;
+    uint64_t currentASID = 0;
+
+    uint64_t tlbAccesses = 0;
+    uint64_t tlbHits =0;
+
   public:
     MMU();
     virtual ~MMU();
@@ -74,7 +94,33 @@ class MMU: public ::MMU
     virtual bool performTranslation(const uint64_t vPage,
                                     uint64_t &pPage,
                                     bool isWrite) override;
+
+    void setTLBConfig(bool enable, size_t size) {
+      enableTLB = enable;
+      tlbSize = size;
+    }
+
+    void setASIDConfig(bool enable) {
+      enableASID = enable;
+    }
+
+    void setCurrentASID(uint64_t asid) {
+      currentASID = asid;
+
+      if (!enableASID) {
+        flushTLB();
+      }
+    
+
+    }
+
+    void flushTLB() {
+      tlb.clear();
+    }
+
+    void printTLBstats() const;
 };
+
 
 /*
  * OS driver part.
