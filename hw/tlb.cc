@@ -17,7 +17,7 @@ struct TLBEntry {
 static std::list<TLBEntry> entries;
 static uintptr_t currentASID = 0;
 TLB::TLB(const MMU &mmu, const size_t max)
-  : mmu(mmu), max(max), stats()
+  : mmu(mmu), max(max), stats(), currentASID(0)
 {
 /* Initialize all statistics to zero  */
   stats.lookups = 0;
