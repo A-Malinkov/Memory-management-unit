@@ -1,46 +1,34 @@
-/* pagetables -- A framework to experiment with memory management
- *
- * Copyright (C) 2017--2026 Leiden University, The Netherlands.
- */
-
 #ifndef __TLB_H__
 #define __TLB_H__
 
-/* Structure representing statistics for the TLB. */
-struct TLBStatistics
-{
-  int lookups; /* Amount of lookups */
-  int hits;    /* Amount of hits */
+#include <cstdint>
+#include <cstddef>
+#include <list>
 
-  int addEvictions;   /* Amount of evictions due to add */
-
-  int flushes; /* Amount of flushes */
-  int flushEvictions; /* Amount of evictions due to flush */
+struct TLBStatistics {
+  int lookups;
+  int hits;
+  int addEvictions;
+  int flushes;
+  int flushEvictions;
 };
 
 class MMU;
 
-/*
- * Translation lookaside buffer.
- */
-
-class TLB
-{
-  private:
+class TLB {
+  public:
+    /* Define Entry inside the class for clarity */
     struct Entry {
-        uint64_t vPage;
-        uint64_t pPage;
+        uint64_t vpn;
+        uint64_t ppn;
         uintptr_t asid;
     };
-    std::list<Entry> entries;
-    uintptr_t currentASID = 0;
 
-    
   protected:
-    /* Reference to MMU; to be filled by initializer list in constructor */
     const MMU &mmu;
-
-    /* Maximum number of entries in TLB */
+    /* Reordered to match constructor initialization order */
+    std::list<Entry> entries;
+    uintptr_t currentASID;
     const size_t max;
 
   public:
@@ -52,8 +40,7 @@ class TLB
     bool lookup(const uint64_t vPage, uint64_t &pPage);
     void add(const uint64_t vPage, const uint64_t pPage);
     void flush(void);
-
     void setASID(const uintptr_t asid);
 };
 
-#endif /* __TLB_H__ */
+#endif

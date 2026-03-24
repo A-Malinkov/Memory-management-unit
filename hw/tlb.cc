@@ -1,78 +1,69 @@
-/* pagetables -- A framework to experiment with memory management
- *
- * Copyright (C) 2017--2026 Leiden University, The Netherlands.
- */
-
-#include "mmu.h"
 #include "tlb.h"
-
-/* TODO: Implement the TLB. */
+#include "mmu.h"
+#include "settings.h"
 
 TLB::TLB(const MMU &mmu, const size_t max)
-  : mmu(mmu), max(max), stats(), currentASID(0)
+  : mmu(mmu), entries(), currentASID(0), max(max), stats()
 {
+  stats.lookups = 0;
+  stats.hits = 0;
+  stats.addEvictions = 0;
+  stats.flushes = 0;
+  stats.flushEvictions = 0;
 }
 
-TLB::~TLB()
-{
-}
+TLB::~TLB() {}
 
-/* Look up the virtual page number @vPage for a physical page number @pPage.
- * Returns whether the lookup was successful.
- */
-bool
-TLB::lookup(const uint64_t vPage, uint64_t &pPage)
-{
+bool TLB::lookup(const uint64_t vPage, uint64_t &pPage) {
   stats.lookups++;
-  for (auto it = entries.begin(); it != entries.end(); ++it) {
-    // vpn and asid check for task 3 but asid is always 0 for task 1 and 2
-    if (it->vPage == vPage && it->asid == currentASID) {
-      stats.hits++;
-      pPage = it->pPage;
 
-      // update most recently used entry to push it to the front
-      Entry found = *it;
-      entries.erase(it);
-      entries.push_front(found);
-      
+  for (auto it = entries.begin(); it != entries.end(); ++it) {
+    bool asidMatch = EnableASID ? (it->asid == currentASID) : true;
+
+    if (it->vpn == vPage && asidMatch) {
+      stats.hits++;
+      pPage = it->ppn;
+
+      // LRU: Move to front
+      entries.splice(entries.begin(), entries, it);
       return true;
     }
   }
-
   return false;
 }
 
-/* Add a translation of @vPage to @pPage to the TLB.
- */
-void
-TLB::add(const uint64_t vPage, const uint64_t pPage)
-{
-  // if tlb full then pop the item at the back
-  if (entries.size() >= max && max > 0) {
-    entries.pop_back();
+void TLB::add(const uint64_t vPage, const uint64_t pPage) {
+  if (max == 0) return;
+
+  if (entries.size() >= max) {
     stats.addEvictions++;
+    entries.pop_back();
   }
 
-  // add new entry to the front
-  if (max > 0) {
-    entries.push_front({vPage, pPage, currentASID});
-  }
+  // Push new entry to the front (MRU)
+  entries.push_front({vPage, pPage, currentASID});
 }
 
-/* Flush all TLB entries.
- */
-void
-TLB::flush(void)
-{
+void TLB::flush(void) {
+  // This increments the specific counter printed in the final report
   stats.flushes++;
+
+  // Record how many valid translations we are losing
   stats.flushEvictions += entries.size();
+
+  // Actually empty the TLB container
   entries.clear();
 }
 
-/* Set the currently active ASID to @asid.
- */
-void
-TLB::setASID(const uintptr_t _asid)
-{
-  currentASID = _asid;
+void TLB::setASID(const uintptr_t asid) {
+  // Only do something if the process actually changed
+  if (currentASID != asid) {
+    currentASID = asid;
+
+    // CRITICAL: If EnableASID is FALSE, it means the hardware
+    // DOES NOT support tags. We must clear the TLB now.
+    if (!EnableASID) {
+      this->flush();
+    }
+  }
 }

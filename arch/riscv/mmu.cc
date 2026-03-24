@@ -4,12 +4,10 @@
  */
 
 #include "riscv.h"
-using namespace RISCV;
+#include "settings.h"
+#include <iostream>
 
-/*
- * MMU hardware. The MMU translates virtual addresses to physical addresses. It
- * does this based on mappings stored in the page table.
- */
+using namespace RISCV;
 
 RISCV::MMU::MMU()
 {
@@ -19,58 +17,41 @@ RISCV::MMU::~MMU()
 {
 }
 
-/* Translate a virtual page number @vPage to a physical page number @pPage.
- * If @isWrite is true, the translation is for a write (this is ignored).
- * Returns whether the translation succeeded.
- */
 bool
-RISCV::MMU::performTranslation(const uint64_t vPage,
-                                uint64_t &pPage,
-                                bool isWrite)
+RISCV::MMU::performTranslation(const uint64_t vPage, uint64_t &pPage, bool isWrite)
 {
-  /* Start at the root of the page table tree. */
-  uint64_t currentTableAddr = root;
-
-  for (int level = 0; level < 4; ++level)
-  {
-    /* Extract the 9-bit index for this level. */
-    int shift = 27 - (level * 9);
-    uint64_t index = (vPage >> shift) & 0x1FF;
-
-    /* Read the entry from the current table. */
-    const TableEntry *table = reinterpret_cast<const TableEntry *>(currentTableAddr);
-    const TableEntry &entry = table[index];
-
-    /* If the entry is not valid, signal a page fault. */
-    if (!entry.valid)
-      return false;
-
-    if (level == 3)
-    {
-      /* Leaf entry: the PPN is the physical page number of the data page. */
-      pPage = entry.ppn;
-      return true;
+    // 1. TLB LOOKUP
+    // Use the global EnableTLB from settings.h
+    if (EnableTLB) {
+        if (tlb.lookup(vPage, pPage)) {
+            return true; // HIT: Stats are updated inside tlb.lookup()
+        }
     }
-    else
-    {
-      /*
-       * Intermediate entry: the PPN points to the next-level table.
-       * Convert the page number to a byte address using pageSize.
-       */
-      currentTableAddr = static_cast<uint64_t>(entry.ppn) * pageSize;
-    }
-  }
 
-  /* Should never be reached. */
-  return false;
+    // 2. PAGE TABLE WALK
+    uint64_t currentTableAddr = root;
+    for (int level = 0; level < 4; ++level) {
+        int shift = 27 - (level * 9);
+        uint64_t index = (vPage >> shift) & 0x1FF;
+
+        const TableEntry *table = reinterpret_cast<const TableEntry *>(currentTableAddr);
+        const TableEntry &entry = table[index];
+
+        if (!entry.valid) return false;
+
+        if (level == 3) {
+            pPage = entry.ppn;
+
+            // 3. TLB UPDATE
+            // If the walk succeeded, we MUST add it to the TLB
+            if (EnableTLB) {
+                tlb.add(vPage, pPage); // Stats are updated inside tlb.add()
+            }
+            return true;
+        }
+        currentTableAddr = static_cast<uint64_t>(entry.ppn) * pageSize;
+    }
+    return false;
 }
-
-
-
-
-
-
-
-
 
 
