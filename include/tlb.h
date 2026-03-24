@@ -34,6 +34,7 @@ class TLB
     };
     std::list<Entry> entries;
     uintptr_t currentASID = 0;
+
     
   protected:
     /* Reference to MMU; to be filled by initializer list in constructor */
