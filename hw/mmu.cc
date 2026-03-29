@@ -93,10 +93,29 @@ MMU::getTranslation(const MemAccess &access, uint64_t &pAddr)
 
   /* TODO: Check if the translation is in the TLB before translating. */
 
-  if(performTranslation(vPage, pPage, isWrite)){
+  /* 1. Check the TLB first (if enabled) */
+  if (EnableTLB) {
+    if (tlb.lookup(vPage, pPage)) {
+        // TLB Hit! We found the physical page immediately.
+      pAddr = makePhysicalAddr(access, pPage);
+      return true;
+    }
+  }
+
+
+
+  /* 2. TLB Miss: Fall back to the slow Page Table Walk */
+  if (performTranslation(vPage, pPage, isWrite)) {
+
+    /* 3. Success! If TLB is enabled, cache this new mapping for next time */
+    if (EnableTLB) {
+      tlb.add(vPage, pPage);
+    }
+
     pAddr = makePhysicalAddr(access, pPage);
     return true;
   }
 
+  /* 4. Translation failed (Page Fault) */
   return false;
 }

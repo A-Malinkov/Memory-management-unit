@@ -8,16 +8,16 @@
 #include "settings.h"
 #include <list>
 /* TODO: Implement the TLB. */
-struct TLBEntry {
-    uint64_t vpn;
-    uint64_t ppn;
-    uintptr_t asid;
-};
+// struct TLBEntry {
+//     uint64_t vpn;
+//     uint64_t ppn;
+//     uintptr_t asid;
+// };
 
-static std::list<TLBEntry> entries;
-static uintptr_t currentASID = 0;
+// static std::list<TLBEntry> entries;
+// static uintptr_t currentASID = 0;
 TLB::TLB(const MMU &mmu, const size_t max)
-  : mmu(mmu), max(max), stats(), currentASID(0)
+: mmu(mmu), max(max), entries(), currentASID(0), stats() // Fixed order and added entries(){
 {
 /* Initialize all statistics to zero  */
   stats.lookups = 0;
@@ -42,9 +42,9 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
   for (auto it = entries.begin(); it != entries.end(); ++it) {
     bool asidMatch = EnableASID ? (it->asid == currentASID) : true;
 
-    if (it->vpn == vPage && asidMatch) {
+    if (it->vPage == vPage && asidMatch) {
       stats.hits++; // Increment only on a successful match
-      pPage = it->ppn;
+      pPage = it->pPage;
 
       // LRU: Move to front
       entries.splice(entries.begin(), entries, it);
