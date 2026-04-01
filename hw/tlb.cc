@@ -17,9 +17,9 @@
 // static std::list<TLBEntry> entries;
 // static uintptr_t currentASID = 0;
 TLB::TLB(const MMU &mmu, const size_t max)
-: mmu(mmu), max(max), entries(), currentASID(0), stats() // Fixed order and added entries(){
+: mmu(mmu), max(max), entries(), currentASID(0), stats() // Fixed order and added entries()
 {
-/* Initialize all statistics to zero  */
+
   stats.lookups = 0;
   stats.hits = 0;
   stats.addEvictions = 0;
@@ -37,7 +37,7 @@ TLB::~TLB()
 bool
 TLB::lookup(const uint64_t vPage, uint64_t &pPage)
 {
-  stats.lookups++; // Increment every time a lookup is attempted
+  stats.lookups++; // Increment lookup
 
   for (auto it = entries.begin(); it != entries.end(); ++it) {
     bool asidMatch = EnableASID ? (it->asid == currentASID) : true;

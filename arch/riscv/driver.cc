@@ -20,8 +20,8 @@ initPageTableEntry(TableEntry &entry, const uintptr_t address)
   // Mark the entry as valid so the MMU hardware can use it
   entry.valid = 1;
 
-  // Set standard permissions (Read, Write, Execute)
-  // Even if the MMU ignores these for the assignment, it's good practice.
+
+  // Even tho the MMU ignores these for the assignment, it's still good to have them
   entry.read = 1;
   entry.write = 1;
   entry.execute = 1;
@@ -35,10 +35,6 @@ getAddress(TableEntry &entry)
   return (uintptr_t) entry.ppn << pageBits;
 }
 
-/*
- * MMU driver software (part of the OS kernel). The OS kernel is in charge of
- * actually allocating and organizing the page tables for the MMU to use.
- */
 
 RISCV::MMUDriver::MMUDriver()
   : pageTables(), bytesAllocated(0), kernel(nullptr)
@@ -47,6 +43,8 @@ RISCV::MMUDriver::MMUDriver()
 
 RISCV::MMUDriver::~MMUDriver()
 {
+
+  // just in case we check
   if(pageTables.empty())
     return;
 
@@ -54,38 +52,37 @@ RISCV::MMUDriver::~MMUDriver()
             << std::endl;
 }
 
-/* Set the host kernel of this driver to @kernel.
- */
+
 void
 RISCV::MMUDriver::setHostKernel(OSKernel *kernel)
 {
-  this->kernel = kernel;
+  this->kernel = kernel; // reference the OS memory allocator
 }
 
+// setting up how many entries we can fit in a 4KB page
 const static int entries = pageSize / sizeof(TableEntry);
 
 
-/* Allocate a new page table root for the process @proc.
- */
 void
 RISCV::MMUDriver::allocatePageTable(const PID proc)
 {
+  // the kernel needs to allocate some RAM for the table
   TableEntry *table = reinterpret_cast<TableEntry *>
       (kernel->allocateMemory(entries * sizeof(TableEntry), pageTableAlign));
-  /* Note: allocateMemory always allocates entire pages. */
+
   bytesAllocated += entries * sizeof(TableEntry);
 
+  // set all entries to invalid
   for(int i = 0; i < entries; i++){
     table[i].valid = 0;
   }
 
-  /* Add to list of page table roots. */
+  // and lastly add the root pointer to the driver table
   pageTables.emplace(proc, table);
 }
 
 
-/* Release the page table associated with the process @proc.
- */
+// get rid of a page table
 void
 RISCV::MMUDriver::releasePageTable(const PID proc)
 {

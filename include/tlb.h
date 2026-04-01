@@ -5,6 +5,8 @@
 
 #ifndef __TLB_H__
 #define __TLB_H__
+#include <list>
+#include <cstdint>
 
 /* Structure representing statistics for the TLB. */
 struct TLBStatistics
@@ -35,7 +37,7 @@ class TLB
     std::list<Entry> entries;
     uintptr_t currentASID = 0;
 
-    
+
   protected:
     /* Reference to MMU; to be filled by initializer list in constructor */
     const MMU &mmu;
@@ -54,6 +56,6 @@ class TLB
     void flush(void);
 
     void setASID(const uintptr_t asid);
-};
+}
 
 #endif /* __TLB_H__ */

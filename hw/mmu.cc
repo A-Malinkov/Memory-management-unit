@@ -9,10 +9,11 @@
 #include <iostream>
 
 MMU::MMU()
+   //initializes an empty root, empty handler, and instantiates the TLB
   : root(0x0), pageFaultHandler(), tlb(*this, TLBEntries)
 {
 }
-
+// prints out the performance metrics
 MMU::~MMU()
 {
   TLBStatistics &stats = tlb.stats;
