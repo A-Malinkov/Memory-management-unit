@@ -7,6 +7,7 @@
 #include "tlb.h"
 #include "settings.h"
 #include <list>
+// This is moved to the tlb.h file
 /* TODO: Implement the TLB. */
 // struct TLBEntry {
 //     uint64_t vpn;
@@ -39,6 +40,7 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
 {
   stats.lookups++; // Increment lookup
 
+  // iterating through the list of entries
   for (auto it = entries.begin(); it != entries.end(); ++it) {
     bool asidMatch = EnableASID ? (it->asid == currentASID) : true;
 
@@ -46,7 +48,8 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
       stats.hits++; // Increment only on a successful match
       pPage = it->pPage;
 
-      // LRU: Move to front
+
+      // removes the element pointed to by `it` from its current position and inserts it at the front of the list
       entries.splice(entries.begin(), entries, it);
       return true;
     }
@@ -59,9 +62,9 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
 void
 TLB::add(const uint64_t vPage, const uint64_t pPage)
 {
-  /* If the TLB is full, evict the least recently used entry  */
+  // If the TLB is full
   if (entries.size() >= max) {
-    stats.addEvictions++; // Increment when forced to kick an entry out to make room
+    stats.addEvictions++; // Increment the evict stat
     entries.pop_back();
   }
 
@@ -73,7 +76,7 @@ TLB::add(const uint64_t vPage, const uint64_t pPage)
 void
 TLB::flush(void)
 {
-  stats.flushes++; // Increment the number of times a flush was triggered
+  stats.flushes++; // Increment the number flushes
   stats.flushEvictions += entries.size(); // Count how many valid entries were cleared
 
   entries.clear();
@@ -84,5 +87,6 @@ TLB::flush(void)
 void
 TLB::setASID(const uintptr_t _asid)
 {
+  //self explantory
   currentASID = _asid;
 }

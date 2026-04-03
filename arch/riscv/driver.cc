@@ -111,63 +111,54 @@ RISCV::MMUDriver::setMapping(const PID proc,
                              uintptr_t vAddr,
                              PhysPage &pPage)
 {
-  /* Get the root table for this process. */
+  // Get the root table
   TableEntry *table = reinterpret_cast<TableEntry *>(getPageTable(proc));
 
-  /* The virtual page number (VPN) is the address with the page offset removed. */
+  // The virtual page with the page offset removed.
   uint64_t vpn = vAddr >> pageBits;
 
   /*
-   * Walk levels 0-2: these are intermediate page table levels.
-   * For each level, extract the appropriate 9-bit VPN segment and
-   * allocate a new sub-table if the entry is not yet valid.
-   *
-   * The bit positions within the VPN are:
-   *   Level 0: bits 35..27  (shift 27)
-   *   Level 1: bits 26..18  (shift 18)
-   *   Level 2: bits 17..9   (shift  9)
-   *   Level 3: bits  8..0   (shift  0) — the leaf, handled separately
+   * The bit positions are:
+   * Level 0: bits 35 to 27  (shift 27)
+   * Level 1: bits 26 to 18  (shift 18)
+   * Level 2: bits 17 to 9   (shift  9)
+   * Level 3: bits  8 to 0   (shift  0)
    */
   for (int level = 0; level < 3; ++level)
   {
     int shift = 27 - (level * 9);
     uint64_t index = (vpn >> shift) & 0x1FF;
 
+    // if the path doesn't exist
     if (!table[index].valid)
     {
-      /* Allocate a new page to hold the next-level table. */
+      // Allocate a new page
       void *newPage = kernel->allocateMemory(pageSize, pageTableAlign);
       bytesAllocated += pageSize;
 
-      /* Zero-initialise all entries in the new table. */
+      // set all entries to zero in the new table
       TableEntry *nextTable = reinterpret_cast<TableEntry *>(newPage);
       for (int i = 0; i < entries; i++)
         nextTable[i].valid = 0;
 
-      /* Point the current entry at the newly allocated table. */
+      // Point the current entry to the new table
       initPageTableEntry(table[index], reinterpret_cast<uintptr_t>(newPage));
 
-      /*
-       * Intermediate entries must NOT have R/W/X set — the hardware uses
-       * those bits to distinguish pointers to the next level (all zero)
-       * from leaf entries (at least one of R/W/X set).
-       */
-      table[index].read    = 0;
-      table[index].write   = 0;
-      table[index].execute = 0;
+      table[index].read= 0;
+      table[index].write= 0;
+      table[index].execute= 0;
     }
 
-    /* Descend into the next-level table. */
+    // go to the next table
     table = reinterpret_cast<TableEntry *>(getAddress(table[index]));
   }
 
-  /* Level 3 — the leaf entry.  Map the VPN's bottom 9 bits to the data page. */
+  // Level 3 is the leaf entry so we need the bottom 9 bits
   uint64_t leafIndex = vpn & 0x1FF;
   initPageTableEntry(table[leafIndex], pPage.addr);
 }
 
-/* Returns the number of bytes allocated for the page table.
- */
+// self explanatory
 uint64_t
 RISCV::MMUDriver::getBytesAllocated(void) const
 {

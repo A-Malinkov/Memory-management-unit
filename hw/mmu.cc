@@ -9,7 +9,7 @@
 #include <iostream>
 
 MMU::MMU()
-   //initializes an empty root, empty handler, and instantiates the TLB
+   //initializes an empty root, empty handler, and a TLB
   : root(0x0), pageFaultHandler(), tlb(*this, TLBEntries)
 {
 }
@@ -56,6 +56,8 @@ MMU::processMemAccess(const MemAccess &access)
     std::cerr << "MMU: memory access: " << access << std::endl;
 
   uint64_t pAddr = 0x0;
+
+  // triggers page fault if the addr is not in the memory or permissions are wrong
   while(not getTranslation(access, pAddr)){
     pageFaultHandler(access.addr);
   }
