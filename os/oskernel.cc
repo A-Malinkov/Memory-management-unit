@@ -194,24 +194,26 @@ OSKernel::interruptHandler(InterruptRequest request)
   processor.setProcess(current);
 
   /* TODO: Flush the TLB, or set the current ASID. */
-  /* Context switch; change root page table pointer. */
+
+  // NEW CODE
+  // Context switch
+  // what is this codebase?
+  // If someone is reading this pls tell me is this preparation for working with production code without documentation
   if(current != nullptr){
     uintptr_t table = driver.getPageTable(current->getPID());
     processor.getMMU().setPageTablePointer(table);
 
-    // --- ADD THIS LOGIC FOR TASK 3 ---
-    TLB &tlb = processor.getMMU().getTLB();
 
+    TLB &tlb = processor.getMMU().getTLB();
     if (EnableASID) {
-        // Tell the TLB which process is now active
+        // if the asid is enabled we need to pass the process id to the tlb
         tlb.setASID(current->getPID());
     } else {
-        // No ASID support? We must wipe the TLB so Process B
-        // doesn't accidentally use Process A's translations.
+        // else we fush
         tlb.flush();
     }
-    // ---------------------------------
   }
+  //END OF NEW CODE
 
   nContextSwitches++;
   std::cerr << std::hex << std::showbase
