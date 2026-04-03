@@ -28,12 +28,12 @@ MMU::~MMU()
     << "# evictions due to flush: " << stats.flushEvictions << std::endl;
 }
 
-/* Initialize the MMU with a given page fault handler @fn.
+/* Initialize the MMU with a given page fault handler @funcForHandling.
  */
 void
-MMU::initialize(PageFaultFunction fn)
+MMU::initialize(PageFaultFunction funcForHandling)
 {
-  pageFaultHandler = fn;
+  pageFaultHandler = funcForHandling;
 }
 
 /* Set the current page table root to @_root.

@@ -56,6 +56,6 @@ class TLB
     void flush(void);
 
     void setASID(const uintptr_t asid);
-}
+};
 
 #endif /* __TLB_H__ */

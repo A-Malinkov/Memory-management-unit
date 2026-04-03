@@ -41,16 +41,16 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
   stats.lookups++; // Increment lookup
 
   // iterating through the list of entries
-  for (auto it = entries.begin(); it != entries.end(); ++it) {
-    bool asidMatch = EnableASID ? (it->asid == currentASID) : true;
+  for (auto i = entries.begin(); i != entries.end(); ++i) {
+    bool asidMatch = EnableASID ? (i->asid == currentASID) : true;
 
-    if (it->vPage == vPage && asidMatch) {
+    if (i->vPage == vPage && asidMatch) {
       stats.hits++; // Increment only on a successful match
-      pPage = it->pPage;
+      pPage = i->pPage;
 
 
       // removes the element pointed to by `it` from its current position and inserts it at the front of the list
-      entries.splice(entries.begin(), entries, it);
+      entries.splice(entries.begin(), entries, i);
       return true;
     }
   }
