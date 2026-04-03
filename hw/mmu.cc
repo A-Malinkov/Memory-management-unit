@@ -86,9 +86,9 @@ MMU::makePhysicalAddr(const MemAccess &access, const uint64_t pPage)
 bool
 MMU::getTranslation(const MemAccess &access, uint64_t &pAddr)
 {
-  /* Strip off (zero out) unused sign-extension bits in virtual address */
-  const uint64_t vAddr = access.addr & ((1UL << getAddressBits()) - 1),
-                 vPage = vAddr >> getPageBits();
+  // Strip off unused sign bits in virtual address using a mask
+  const uint64_t vAddr = access.addr & ((1UL << getAddressBits()) - 1);
+  const uint64_t vPage = vAddr >> getPageBits();
 
   uint64_t pPage = 0;
   bool isWrite = (access.type == MemAccessType::Store ||
@@ -96,10 +96,10 @@ MMU::getTranslation(const MemAccess &access, uint64_t &pAddr)
 
   /* TODO: Check if the translation is in the TLB before translating. */
 
-  /* 1. Check the TLB first (if enabled) */
+  // Check the TLB
   if (EnableTLB) {
     if (tlb.lookup(vPage, pPage)) {
-        // TLB Hit! We found the physical page immediately.
+      // hit
       pAddr = makePhysicalAddr(access, pPage);
       return true;
     }
@@ -107,10 +107,10 @@ MMU::getTranslation(const MemAccess &access, uint64_t &pAddr)
 
 
 
-  /* 2. TLB Miss: Fall back to the slow Page Table Walk */
+  // TLB Miss aka do the page walk
   if (performTranslation(vPage, pPage, isWrite)) {
 
-    /* 3. Success! If TLB is enabled, cache this new mapping for next time */
+    // if TLB is enabled cache the new mapping
     if (EnableTLB) {
       tlb.add(vPage, pPage);
     }
@@ -119,6 +119,6 @@ MMU::getTranslation(const MemAccess &access, uint64_t &pAddr)
     return true;
   }
 
-  /* 4. Translation failed (Page Fault) */
+  // page fault
   return false;
 }

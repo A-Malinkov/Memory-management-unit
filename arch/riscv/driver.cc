@@ -96,11 +96,11 @@ RISCV::MMUDriver::releasePageTable(const PID proc)
 uintptr_t
 RISCV::MMUDriver::getPageTable(const PID proc)
 {
-  auto kv = pageTables.find(proc);
-  if(kv == pageTables.end())
+  auto targetP = pageTables.find(proc);
+  if(targetP == pageTables.end())
     return 0x0;
 
-  return reinterpret_cast<uintptr_t>(kv->second);
+  return reinterpret_cast<uintptr_t>(targetP->second);
 }
 
 /* Create a new mapping for the process @proc, mapping the virtual address
