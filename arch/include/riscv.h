@@ -82,7 +82,7 @@ class MMU: public ::MMU
 class MMUDriver: public ::MMUDriver
 {
   protected:
-    std::map<uint64_t, TableEntry *> pageTables;
+    std::map<uint64_t, TableEntry *> pageTablesMap;
     uint64_t bytesAllocated;
     OSKernel *kernel; /* no ownership */
 

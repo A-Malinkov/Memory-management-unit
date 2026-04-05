@@ -11,10 +11,9 @@ using namespace RISCV;
 /* Initialize a page table entry @entry with the given @address.
  */
 static inline void
-initPageTableEntry(TableEntry &entry, const uintptr_t address)
-{
+initPageTableEntry(TableEntry &entry, const uintptr_t address) {
   /* TODO: Implement. */
-  // The PPN is the address divided by the page size (shifted by 12)
+  // The PPN is the address shifted by 12
   entry.ppn = address >> pageBits;
 
   // Mark the entry as valid so the MMU hardware can use it
@@ -30,22 +29,20 @@ initPageTableEntry(TableEntry &entry, const uintptr_t address)
 /* Returns the address for a given page table entry @entry.
  */
 static inline uintptr_t
-getAddress(TableEntry &entry)
-{
+getAddress(TableEntry &entry) {
   return (uintptr_t) entry.ppn << pageBits;
 }
 
 
 RISCV::MMUDriver::MMUDriver()
-  : pageTables(), bytesAllocated(0), kernel(nullptr)
-{
+  : pageTablesMap(), bytesAllocated(0), kernel(nullptr){
 }
 
 RISCV::MMUDriver::~MMUDriver()
 {
 
   // just in case we check
-  if(pageTables.empty())
+  if(pageTablesMap.empty())
     return;
 
   std::cerr << "MMUDriver: error: kernel did not release all page tables."
@@ -54,8 +51,7 @@ RISCV::MMUDriver::~MMUDriver()
 
 
 void
-RISCV::MMUDriver::setHostKernel(OSKernel *kernel)
-{
+RISCV::MMUDriver::setHostKernel(OSKernel *kernel){
   this->kernel = kernel; // reference the OS memory allocator
 }
 
@@ -64,8 +60,7 @@ const static int entries = pageSize / sizeof(TableEntry);
 
 
 void
-RISCV::MMUDriver::allocatePageTable(const PID proc)
-{
+RISCV::MMUDriver::allocatePageTable(const PID proc) {
   // the kernel needs to allocate some RAM for the table
   TableEntry *table = reinterpret_cast<TableEntry *>
       (kernel->allocateMemory(entries * sizeof(TableEntry), pageTableAlign));
@@ -78,27 +73,25 @@ RISCV::MMUDriver::allocatePageTable(const PID proc)
   }
 
   // and lastly add the root pointer to the driver table
-  pageTables.emplace(proc, table);
+  pageTablesMap.emplace(proc, table);
 }
 
 
 // get rid of a page table
 void
-RISCV::MMUDriver::releasePageTable(const PID proc)
-{
-  auto it = pageTables.find(proc);
+RISCV::MMUDriver::releasePageTable(const PID proc) {
+  auto it = pageTablesMap.find(proc);
   kernel->releaseMemory(it->second, entries * sizeof(TableEntry));
-  pageTables.erase(it);
+  pageTablesMap.erase(it);
 }
 
 /* Returns the root of the page table associated with the process @proc.
  */
 uintptr_t
-RISCV::MMUDriver::getPageTable(const PID proc)
-{
-  auto targetP = pageTables.find(proc);
-  if(targetP == pageTables.end())
-    return 0x0;
+RISCV::MMUDriver::getPageTable(const PID proc) {
+  auto targetP = pageTablesMap.find(proc);
+  if(targetP == pageTablesMap.end()) {
+    return 0x0; }
 
   return reinterpret_cast<uintptr_t>(targetP->second);
 }
@@ -107,10 +100,7 @@ RISCV::MMUDriver::getPageTable(const PID proc)
  *  @vAddr to the physical page @pPage.
  */
 void
-RISCV::MMUDriver::setMapping(const PID proc,
-                             uintptr_t vAddr,
-                             PhysPage &pPage)
-{
+RISCV::MMUDriver::setMapping(const PID proc, uintptr_t vAddr, PhysPage &pPage) {
   // Get the root table
   TableEntry *table = reinterpret_cast<TableEntry *>(getPageTable(proc));
 
@@ -119,19 +109,17 @@ RISCV::MMUDriver::setMapping(const PID proc,
 
   /*
    * The bit positions are:
-   * Level 0: bits 35 to 27  (shift 27)
-   * Level 1: bits 26 to 18  (shift 18)
-   * Level 2: bits 17 to 9   (shift  9)
-   * Level 3: bits  8 to 0   (shift  0)
+   * Level 0: bits 35 to 27 (shift 27)
+   * Level 1: bits 26 to 18 (shift 18)
+   * Level 2: bits 17 to 9 (shift 9)
+   * Level 3: bits  8 to 0 (shift 0)
    */
-  for (int level = 0; level < 3; ++level)
-  {
+  for (int level = 0; level < 3; ++level) {
     int shift = 27 - (level * 9);
     uint64_t index = (vpn >> shift) & 0x1FF;
 
     // if the path doesn't exist
-    if (!table[index].valid)
-    {
+    if (!table[index].valid) {
       // Allocate a new page
       void *newPage = kernel->allocateMemory(pageSize, pageTableAlign);
       bytesAllocated += pageSize;
