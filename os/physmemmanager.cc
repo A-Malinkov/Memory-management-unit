@@ -128,7 +128,7 @@ PhysMemManagerBitmap::releasePages(uintptr_t addr, size_t count)
 
 PhysMemManagerHole::PhysMemManagerHole(const uint64_t pageSize,
                                        const uint64_t memorySize)
-  : PhysMemManager(pageSize, memorySize)
+  : PhysMemManager(pageSize, memorySize), holes()
 {
   holes.push_back({0, nPages});
 }
@@ -178,13 +178,13 @@ PhysMemManagerHole::releasePages(uintptr_t addr, size_t count)
     ++it;
   }
 
-  auto inp = holes.insert(it, released);
-  if(inp != holes.begin()){
-    auto prev = std::prev(inp);
+  auto inserted = holes.insert(it, released);
+  if(inserted != holes.begin()){
+    auto prev = std::prev(inserted);
 
-    if(prev->spoint + prev->len == inp->spoint){
-      prev->len += inp->len;
-      inp = holes.erase(inp);
+    if(prev->spoint + prev->len == inserted->spoint){
+      prev->len += inserted->len;
+      inserted = holes.erase(inserted);
       inserted = prev;
     }
   }
