@@ -12,4 +12,4 @@ bool EnableTLB = false;
 uint32_t TLBEntries = 32;
 bool EnableASID = false;
 
-bool EnableHole = false;
+bool EnableHole = true;
