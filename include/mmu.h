@@ -27,14 +27,20 @@ class MMU
   public:
     MMU();
     virtual ~MMU();
-
+    // Hooks the MMU up to the OS's trap
     void initialize(PageFaultFunction fn);
+    // Updates the root pointer
     void setPageTablePointer(const uintptr_t root);
+    // CPU memory request
     void processMemAccess(const MemAccess &access);
 
+    // to create the phisical addr we need to combine the translated physical page number with the original offset
     uint64_t makePhysicalAddr(const MemAccess &access, const uint64_t pPage);
+
+    // TLB lookup
     bool getTranslation(const MemAccess &access, uint64_t &pAddr);
 
+    // I'm pretty sure this is for stat tracking
     TLB &getTLB()
     {
       return tlb;

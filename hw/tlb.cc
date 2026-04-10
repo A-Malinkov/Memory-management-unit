@@ -5,12 +5,29 @@
 
 #include "mmu.h"
 #include "tlb.h"
+#include "settings.h"
+#include <list>
 
+// IGNORE
+// This is moved to the tlb.h file
 /* TODO: Implement the TLB. */
+// struct TLBEntry {
+//     uint64_t vpn;
+//     uint64_t ppn;
+//     uintptr_t asid;
+// };
 
+// static std::list<TLBEntry> entries;
+// static uintptr_t currentASID = 0;
 TLB::TLB(const MMU &mmu, const size_t max)
-  : mmu(mmu), max(max), stats()
+: mmu(mmu), max(max), entries(), currentASID(0), stats() // Fixed order and added entries()
 {
+
+  stats.lookups = 0;
+  stats.hits = 0;
+  stats.addEvictions = 0;
+  stats.flushes = 0;
+  stats.flushEvictions = 0;
 }
 
 TLB::~TLB()
@@ -23,6 +40,22 @@ TLB::~TLB()
 bool
 TLB::lookup(const uint64_t vPage, uint64_t &pPage)
 {
+  stats.lookups++; // Increment lookup
+
+  // iterating through the list of entries
+  for (auto i = entries.begin(); i != entries.end(); ++i) {
+    bool asidMatch = EnableASID ? (i->asid == currentASID) : true;
+
+    if (i->vPage == vPage && asidMatch) {
+      stats.hits++; // Increment only on a successful match
+      pPage = i->pPage;
+
+      // basically reseting the position if we look it up
+      // removes the element from its current position and inserts it at the front of the list
+      entries.splice(entries.begin(), entries, i);
+      return true;
+    }
+  }
   return false;
 }
 
@@ -31,6 +64,13 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
 void
 TLB::add(const uint64_t vPage, const uint64_t pPage)
 {
+  // If the TLB is full
+  if (entries.size() >= max) {
+    stats.addEvictions++; // Increment the evict stat
+    entries.pop_back();
+  }
+
+  entries.push_front({vPage, pPage, currentASID});
 }
 
 /* Flush all TLB entries.
@@ -38,6 +78,10 @@ TLB::add(const uint64_t vPage, const uint64_t pPage)
 void
 TLB::flush(void)
 {
+  stats.flushes++; // Increment the number flushes
+  stats.flushEvictions += entries.size(); // Count how many valid entries were cleared
+
+  entries.clear();
 }
 
 /* Set the currently active ASID to @asid.
@@ -45,4 +89,6 @@ TLB::flush(void)
 void
 TLB::setASID(const uintptr_t _asid)
 {
+  //self explantory
+  currentASID = _asid;
 }

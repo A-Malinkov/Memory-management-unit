@@ -128,8 +128,9 @@ PhysMemManagerBitmap::releasePages(uintptr_t addr, size_t count)
 
 PhysMemManagerHole::PhysMemManagerHole(const uint64_t pageSize,
                                        const uint64_t memorySize)
-  : PhysMemManager(pageSize, memorySize)
+  : PhysMemManager(pageSize, memorySize), holes()
 {
+  holes.push_back({0, nPages});
 }
 
 /* Allocate @count pages, returning the starting address in @addr.
@@ -140,9 +141,26 @@ PhysMemManagerHole::allocatePages(size_t count, uintptr_t &addr)
 {
   /* Check upfront if pages are available at all. */
   if (nAllocatedPages + count > nPages)
-      return false;
+    return false;
 
-  /* TODO: Implement. */
+  for(auto it = holes.begin(); it != holes.end(); ++it){
+    if(it->len < count)
+      continue;
+    uint64_t spoint = it->spoint;
+    addr = (uintptr_t)baseAddress + spoint * pageSize;
+
+    it->spoint += count;
+    it->len -= count;
+
+    if(it->len == 0)
+      holes.erase(it);
+
+    nAllocatedPages += count;
+    maxAllocatedPages = std::max(maxAllocatedPages, nAllocatedPages);
+
+    return true;
+  }
+
   return false;
 }
 
@@ -152,4 +170,29 @@ void
 PhysMemManagerHole::releasePages(uintptr_t addr, size_t count)
 {
   /* TODO: Implement. */
+  uint64_t spoint = (addr - (uintptr_t)baseAddress) / pageSize;
+  Hole released{spoint, count};
+
+  auto it = holes.begin();
+  while(it != holes.end() && it->spoint < spoint){
+    ++it;
+  }
+
+  auto inserted = holes.insert(it, released);
+  if(inserted != holes.begin()){
+    auto prev = std::prev(inserted);
+
+    if(prev->spoint + prev->len == inserted->spoint){
+      prev->len += inserted->len;
+      inserted = holes.erase(inserted);
+      inserted = prev;
+    }
+  }
+
+  auto next = std::next(inserted);
+  if(next != holes.end() && inserted->spoint + inserted->len == next->spoint){
+    inserted->len += next->len;
+    holes.erase(next);
+  }
+  nAllocatedPages -= count;
 }

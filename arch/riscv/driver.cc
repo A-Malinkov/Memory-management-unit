@@ -11,17 +11,16 @@ using namespace RISCV;
 /* Initialize a page table entry @entry with the given @address.
  */
 static inline void
-initPageTableEntry(TableEntry &entry, const uintptr_t address)
-{
+initPageTableEntry(TableEntry &entry, const uintptr_t address) {
   /* TODO: Implement. */
-  // The PPN is the address divided by the page size (shifted by 12)
+  // The PPN is the address shifted by 12
   entry.ppn = address >> pageBits;
 
   // Mark the entry as valid so the MMU hardware can use it
   entry.valid = 1;
 
-  // Set standard permissions (Read, Write, Execute)
-  // Even if the MMU ignores these for the assignment, it's good practice.
+
+  // Even tho the MMU ignores these for the assignment, it's still good to have them
   entry.read = 1;
   entry.write = 1;
   entry.execute = 1;
@@ -30,147 +29,124 @@ initPageTableEntry(TableEntry &entry, const uintptr_t address)
 /* Returns the address for a given page table entry @entry.
  */
 static inline uintptr_t
-getAddress(TableEntry &entry)
-{
+getAddress(TableEntry &entry) {
   return (uintptr_t) entry.ppn << pageBits;
 }
 
-/*
- * MMU driver software (part of the OS kernel). The OS kernel is in charge of
- * actually allocating and organizing the page tables for the MMU to use.
- */
 
 RISCV::MMUDriver::MMUDriver()
-  : pageTables(), bytesAllocated(0), kernel(nullptr)
-{
+  : pageTablesMap(), bytesAllocated(0), kernel(nullptr){
 }
 
 RISCV::MMUDriver::~MMUDriver()
 {
-  if(pageTables.empty())
+
+  // just in case we check
+  if(pageTablesMap.empty())
     return;
 
   std::cerr << "MMUDriver: error: kernel did not release all page tables."
             << std::endl;
 }
 
-/* Set the host kernel of this driver to @kernel.
- */
+
 void
-RISCV::MMUDriver::setHostKernel(OSKernel *kernel)
-{
-  this->kernel = kernel;
+RISCV::MMUDriver::setHostKernel(OSKernel *kernel){
+  this->kernel = kernel; // reference the OS memory allocator
 }
 
+// setting up how many entries we can fit in a 4KB page
 const static int entries = pageSize / sizeof(TableEntry);
 
 
-/* Allocate a new page table root for the process @proc.
- */
 void
-RISCV::MMUDriver::allocatePageTable(const PID proc)
-{
+RISCV::MMUDriver::allocatePageTable(const PID proc) {
+  // the kernel needs to allocate some RAM for the table
   TableEntry *table = reinterpret_cast<TableEntry *>
       (kernel->allocateMemory(entries * sizeof(TableEntry), pageTableAlign));
-  /* Note: allocateMemory always allocates entire pages. */
+
   bytesAllocated += entries * sizeof(TableEntry);
 
+  // set all entries to invalid
   for(int i = 0; i < entries; i++){
     table[i].valid = 0;
   }
 
-  /* Add to list of page table roots. */
-  pageTables.emplace(proc, table);
+  // and lastly add the root pointer to the driver table
+  pageTablesMap.emplace(proc, table);
 }
 
 
-/* Release the page table associated with the process @proc.
- */
+// get rid of a page table
 void
-RISCV::MMUDriver::releasePageTable(const PID proc)
-{
-  auto it = pageTables.find(proc);
+RISCV::MMUDriver::releasePageTable(const PID proc) {
+  auto it = pageTablesMap.find(proc);
   kernel->releaseMemory(it->second, entries * sizeof(TableEntry));
-  pageTables.erase(it);
+  pageTablesMap.erase(it);
 }
 
 /* Returns the root of the page table associated with the process @proc.
  */
 uintptr_t
-RISCV::MMUDriver::getPageTable(const PID proc)
-{
-  auto kv = pageTables.find(proc);
-  if(kv == pageTables.end())
-    return 0x0;
+RISCV::MMUDriver::getPageTable(const PID proc) {
+  auto targetP = pageTablesMap.find(proc);
+  if(targetP == pageTablesMap.end()) {
+    return 0x0; }
 
-  return reinterpret_cast<uintptr_t>(kv->second);
+  return reinterpret_cast<uintptr_t>(targetP->second);
 }
 
 /* Create a new mapping for the process @proc, mapping the virtual address
  *  @vAddr to the physical page @pPage.
  */
 void
-RISCV::MMUDriver::setMapping(const PID proc,
-                             uintptr_t vAddr,
-                             PhysPage &pPage)
-{
-  /* Get the root table for this process. */
+RISCV::MMUDriver::setMapping(const PID proc, uintptr_t vAddr, PhysPage &pPage) {
+  // Get the root table
   TableEntry *table = reinterpret_cast<TableEntry *>(getPageTable(proc));
 
-  /* The virtual page number (VPN) is the address with the page offset removed. */
+  // The virtual page with the page offset removed.
   uint64_t vpn = vAddr >> pageBits;
 
   /*
-   * Walk levels 0-2: these are intermediate page table levels.
-   * For each level, extract the appropriate 9-bit VPN segment and
-   * allocate a new sub-table if the entry is not yet valid.
-   *
-   * The bit positions within the VPN are:
-   *   Level 0: bits 35..27  (shift 27)
-   *   Level 1: bits 26..18  (shift 18)
-   *   Level 2: bits 17..9   (shift  9)
-   *   Level 3: bits  8..0   (shift  0) — the leaf, handled separately
+   * The bit positions are:
+   * Level 0: bits 35 to 27 (shift 27)
+   * Level 1: bits 26 to 18 (shift 18)
+   * Level 2: bits 17 to 9 (shift 9)
+   * Level 3: bits  8 to 0 (shift 0)
    */
-  for (int level = 0; level < 3; ++level)
-  {
+  for (int level = 0; level < 3; ++level) {
     int shift = 27 - (level * 9);
     uint64_t index = (vpn >> shift) & 0x1FF;
 
-    if (!table[index].valid)
-    {
-      /* Allocate a new page to hold the next-level table. */
+    // if the path doesn't exist
+    if (!table[index].valid) {
+      // Allocate a new page
       void *newPage = kernel->allocateMemory(pageSize, pageTableAlign);
       bytesAllocated += pageSize;
 
-      /* Zero-initialise all entries in the new table. */
+      // set all entries to zero in the new table
       TableEntry *nextTable = reinterpret_cast<TableEntry *>(newPage);
       for (int i = 0; i < entries; i++)
         nextTable[i].valid = 0;
 
-      /* Point the current entry at the newly allocated table. */
+      // Point the current entry to the new table
       initPageTableEntry(table[index], reinterpret_cast<uintptr_t>(newPage));
 
-      /*
-       * Intermediate entries must NOT have R/W/X set — the hardware uses
-       * those bits to distinguish pointers to the next level (all zero)
-       * from leaf entries (at least one of R/W/X set).
-       */
-      table[index].read    = 0;
-      table[index].write   = 0;
-      table[index].execute = 0;
+      table[index].read= 0;
+      table[index].write= 0;
+      table[index].execute= 0;
     }
 
-    /* Descend into the next-level table. */
+    // go to the next table
     table = reinterpret_cast<TableEntry *>(getAddress(table[index]));
   }
 
-  /* Level 3 — the leaf entry.  Map the VPN's bottom 9 bits to the data page. */
+  // Level 3 is the leaf entry so we need the bottom 9 bits
   uint64_t leafIndex = vpn & 0x1FF;
   initPageTableEntry(table[leafIndex], pPage.addr);
 }
 
-/* Returns the number of bytes allocated for the page table.
- */
+// self explanatory
 uint64_t
 RISCV::MMUDriver::getBytesAllocated(void) const
 {

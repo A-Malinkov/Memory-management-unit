@@ -9,6 +9,7 @@
 #include "settings.h"
 
 #include <vector>
+#include <list>
 #include <cstddef>
 
 /* We assume that the RAM starts at 16GiB in the physical address space.
@@ -67,7 +68,12 @@ class PhysMemManagerBitmap: public PhysMemManager
 class PhysMemManagerHole: public PhysMemManager
 {
   protected:
-    /* TODO: Add data structures necessary for hole list. */
+    struct Hole
+    {
+      uint64_t spoint;
+      uint64_t len;
+    };
+    std::list<Hole> holes;
 
   public:
     PhysMemManagerHole(const uint64_t pageSize, const uint64_t memorySize);

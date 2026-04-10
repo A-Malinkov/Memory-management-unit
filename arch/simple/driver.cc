@@ -32,13 +32,13 @@ getAddress(TableEntry &entry)
  */
 
 Simple::MMUDriver::MMUDriver()
-  : pageTables(), bytesAllocated(0), kernel(nullptr)
+  : pageTablesMap(), bytesAllocated(0), kernel(nullptr)
 {
 }
 
 Simple::MMUDriver::~MMUDriver()
 {
-  if(pageTables.empty())
+  if(pageTablesMap.empty())
     return;
 
   std::cerr << "MMUDriver: error: kernel did not release all page tables."
@@ -70,7 +70,7 @@ Simple::MMUDriver::allocatePageTable(const PID proc)
   }
 
   /* Add to list of page table roots. */
-  pageTables.emplace(proc, table);
+  pageTablesMap.emplace(proc, table);
 }
 
 /* Release the page table associated with the process @proc.
@@ -78,9 +78,9 @@ Simple::MMUDriver::allocatePageTable(const PID proc)
 void
 Simple::MMUDriver::releasePageTable(const PID proc)
 {
-  auto it = pageTables.find(proc);
+  auto it = pageTablesMap.find(proc);
   kernel->releaseMemory(it->second, entries * sizeof(TableEntry));
-  pageTables.erase(it);
+  pageTablesMap.erase(it);
 }
 
 /* Returns the root of the page table associated with the process @proc.
@@ -88,8 +88,8 @@ Simple::MMUDriver::releasePageTable(const PID proc)
 uintptr_t
 Simple::MMUDriver::getPageTable(const PID proc)
 {
-  auto kv = pageTables.find(proc);
-  if(kv == pageTables.end())
+  auto kv = pageTablesMap.find(proc);
+  if(kv == pageTablesMap.end())
     return 0x0;
 
   return reinterpret_cast<uintptr_t>(kv->second);
@@ -107,7 +107,7 @@ Simple::MMUDriver::setMapping(const PID proc,
   vAddr &= (1UL << addressBits) - 1;
 
   int entry = vAddr / pageSize;
-  initPageTableEntry(pageTables[proc][entry], pPage.addr);
+  initPageTableEntry(pageTablesMap[proc][entry], pPage.addr);
 }
 
 /* Returns the number of bytes allocated for the page table.

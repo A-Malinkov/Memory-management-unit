@@ -195,6 +195,26 @@ OSKernel::interruptHandler(InterruptRequest request)
 
   /* TODO: Flush the TLB, or set the current ASID. */
 
+  // NEW CODE
+  // Context switch
+  // what is this codebase?
+  // If someone is reading this pls tell me is this preparation for working with production code without documentation
+  if(current != nullptr){
+    uintptr_t table = driver.getPageTable(current->getPID());
+    processor.getMMU().setPageTablePointer(table);
+
+
+    TLB &tlb = processor.getMMU().getTLB();
+    if (EnableASID) {
+        // if the asid is enabled we need to pass the process id to the tlb
+        tlb.setASID(current->getPID());
+    } else {
+        // else we fush
+        tlb.flush();
+    }
+  }
+  //END OF NEW CODE
+
   nContextSwitches++;
   std::cerr << std::hex << std::showbase
       << "KERNEL: context switch: now executing " << current->getPID()

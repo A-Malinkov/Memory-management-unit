@@ -28,40 +28,40 @@ RISCV::MMU::performTranslation(const uint64_t vPage,
                                 uint64_t &pPage,
                                 bool isWrite)
 {
-  /* Start at the root of the page table tree. */
+  // our start is the root
   uint64_t currentTableAddr = root;
 
   for (int level = 0; level < 4; ++level)
   {
-    /* Extract the 9-bit index for this level. */
+    // get the 9-bit index for cur level
     int shift = 27 - (level * 9);
     uint64_t index = (vPage >> shift) & 0x1FF;
 
-    /* Read the entry from the current table. */
+
     const TableEntry *table = reinterpret_cast<const TableEntry *>(currentTableAddr);
     const TableEntry &entry = table[index];
 
-    /* If the entry is not valid, signal a page fault. */
+    // this is how we trigger a page fault
+    // If the entry is not valid
     if (!entry.valid)
       return false;
 
     if (level == 3)
     {
-      /* Leaf entry: the PPN is the physical page number of the data page. */
+      // Leaf entry aka the PPN is the physical page number
       pPage = entry.ppn;
       return true;
     }
     else
     {
-      /*
-       * Intermediate entry: the PPN points to the next-level table.
-       * Convert the page number to a byte address using pageSize.
-       */
+
+      //  Intermediate entry ska the PPN points to the next-level
+      //  Convert the page number to a byte address
       currentTableAddr = static_cast<uint64_t>(entry.ppn) * pageSize;
     }
   }
 
-  /* Should never be reached. */
+  // I don't think we can get here but we need to return something
   return false;
 }
 
