@@ -49,6 +49,7 @@ struct SettingsGuard
 
 BOOST_AUTO_TEST_SUITE(tlb_test)
 
+/* test adding and lookng up entries*/
 BOOST_AUTO_TEST_CASE(add_and_lookup_hit)
 {
   SettingsGuard guard;
@@ -64,6 +65,7 @@ BOOST_AUTO_TEST_CASE(add_and_lookup_hit)
   BOOST_CHECK_EQUAL(tlb.stats.hits, 1);
 }
 
+/* test flushing entries*/
 BOOST_AUTO_TEST_CASE(flush_removes_entries)
 {
   SettingsGuard guard;
@@ -74,12 +76,12 @@ BOOST_AUTO_TEST_CASE(flush_removes_entries)
   tlb.add(1, 11);
   tlb.add(2, 22);
   tlb.flush();
-
   BOOST_CHECK_EQUAL(tlb.lookup(1, pPage), false);
   BOOST_CHECK_EQUAL(tlb.stats.flushes, 1);
   BOOST_CHECK_EQUAL(tlb.stats.flushEvictions, 2);
 }
 
+/* test asid seperation */
 BOOST_AUTO_TEST_CASE(asid_separates_entries)
 {
   SettingsGuard guard;
@@ -91,10 +93,8 @@ BOOST_AUTO_TEST_CASE(asid_separates_entries)
 
   tlb.setASID(1);
   tlb.add(7, 70);
-
   tlb.setASID(2);
   BOOST_CHECK_EQUAL(tlb.lookup(7, pPage), false);
-
   tlb.setASID(1);
   BOOST_CHECK_EQUAL(tlb.lookup(7, pPage), true);
   BOOST_CHECK_EQUAL(pPage, 70);

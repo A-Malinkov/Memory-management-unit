@@ -51,6 +51,7 @@ struct MMUDriverFixture
   MMUDriverFixture &operator=(const MMUDriverFixture &) = delete;
 };
 
+/* Test empty page table  */
 BOOST_FIXTURE_TEST_CASE(empty_page_table, MMUFixture)
 {
   MemAccess access{
@@ -63,6 +64,7 @@ BOOST_FIXTURE_TEST_CASE(empty_page_table, MMUFixture)
   BOOST_CHECK_EQUAL(mmu.getTranslation(access, pAddr), false);
 }
 
+/* test setting a mapping*/
 BOOST_FIXTURE_TEST_CASE(set_mapping_creates_translation, MMUDriverFixture)
 {
   driver.allocatePageTable(0);
@@ -81,14 +83,13 @@ BOOST_FIXTURE_TEST_CASE(set_mapping_creates_translation, MMUDriverFixture)
     .addr = 5 * pageSize
   };
   driver.setMapping(0, access.addr & ~(pageSize - 1), pPage);
-
   BOOST_CHECK_EQUAL(mmu.getTranslation(access, pAddr), true);
   BOOST_CHECK_EQUAL(pAddr, pPage.addr | (access.addr & (pageSize - 1)));
-
   processor.getMMU().setPageTablePointer(0x0);
   driver.releasePageTable(0);
 }
 
+/* test wehter page faults are handled and add mapping */
 BOOST_FIXTURE_TEST_CASE(page_fault_adds_mapping, MMUDriverFixture)
 {
   driver.allocatePageTable(0);
@@ -99,16 +100,18 @@ BOOST_FIXTURE_TEST_CASE(page_fault_adds_mapping, MMUDriverFixture)
     .addr = 0x2000,
     .size = 8
   };
+
+
   uint64_t pAddr = 0;
   BOOST_CHECK_EQUAL(mmu.getTranslation(access, pAddr), false);
-
   mmu.processMemAccess(access);
-
   BOOST_CHECK_EQUAL(mmu.getTranslation(access, pAddr), true);
 
   kernel.releaseMemory(reinterpret_cast<void *>(pAddr), pageSize);
   processor.getMMU().setPageTablePointer(0x0);
   driver.releasePageTable(0);
 }
+
+
 
 BOOST_AUTO_TEST_SUITE_END()
