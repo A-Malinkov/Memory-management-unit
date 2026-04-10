@@ -7,6 +7,8 @@
 #include "tlb.h"
 #include "settings.h"
 #include <list>
+
+// IGNORE
 // This is moved to the tlb.h file
 /* TODO: Implement the TLB. */
 // struct TLBEntry {
@@ -48,8 +50,8 @@ TLB::lookup(const uint64_t vPage, uint64_t &pPage)
       stats.hits++; // Increment only on a successful match
       pPage = i->pPage;
 
-
-      // removes the element pointed to by `it` from its current position and inserts it at the front of the list
+      // basically reseting the position if we look it up
+      // removes the element from its current position and inserts it at the front of the list
       entries.splice(entries.begin(), entries, i);
       return true;
     }
